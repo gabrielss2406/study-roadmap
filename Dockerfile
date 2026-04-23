@@ -39,11 +39,12 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # Prisma runtime
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 COPY --from=builder /app/prisma ./prisma
 
 USER nextjs
 
 EXPOSE 3000
 
-# Roda migrations (cria o banco se não existir) e sobe o app
-CMD ["sh", "-c", "npx prisma migrate deploy && node server.js"]
+# Roda migrations usando o binário local e sobe o app
+CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy && node server.js"]
