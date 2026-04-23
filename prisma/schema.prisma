@@ -1,0 +1,31 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model TopicCheck {
+  id        String   @id @default(cuid())
+  topicKey  String   @unique // e.g. "m1-0"
+  done      Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+
+  @@map("topic_checks")
+}
+
+model Deliverable {
+  id          String            @id @default(cuid())
+  monthId     String            // e.g. "m1"
+  title       String
+  status      String            @default("PENDING")
+  notes       String?
+  link        String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@map("deliverables")
+}
