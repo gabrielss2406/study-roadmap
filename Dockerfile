@@ -29,27 +29,29 @@ ENV DATABASE_URL="file:/data/db.sqlite"
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# openssl é obrigatório para o Prisma, libc6-compat para compatibilidade
 RUN apk add --no-cache libc6-compat openssl
 
 RUN addgroup --system --gid 1001 nodejs \
  && adduser --system --uid 1001 nextjs \
  && mkdir -p /data && chown nextjs:nodejs /data
 
-# Arquivos do Next.js Standalone
-COPY --from=builder /app/public ./public
+# Copia o standalone (que já contém a maior parte do node_modules necessário)
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
-# Prisma: Copiando com permissão para o usuário nextjs
-# O Prisma PRECISA de permissão de escrita em node_modules/@prisma/engines
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
+# Copia o schema e as migrações
+COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+
+# O Prisma Client gerado fica em node_modules/.prisma e node_modules/@prisma/client
+# Precisamos garantir que eles existam e tenham as permissões corretas
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
 
 USER nextjs
 
 EXPOSE 3000
 
-# Agora com as permissões corretas e OpenSSL instalado
+# migrate deploy vai criar o banco em /data/db.sqlite com permissão do usuário nextjs
 CMD ["sh", "-c", "node node_modules/prisma/build/index.js migrate deploy && node server.js"]
