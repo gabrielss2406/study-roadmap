@@ -1,6 +1,5 @@
 # ── Stage 1: deps ──────────────────────────────────────────────────────────────
 FROM node:20-alpine AS deps
-# libc6-compat é essencial para o Prisma funcionar no Alpine
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
@@ -30,7 +29,8 @@ ENV DATABASE_URL="file:/data/db.sqlite"
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-RUN apk add --no-cache libc6-compat
+# openssl é obrigatório para o Prisma, libc6-compat para compatibilidade
+RUN apk add --no-cache libc6-compat openssl
 
 RUN addgroup --system --gid 1001 nodejs \
  && adduser --system --uid 1001 nextjs \
@@ -41,15 +41,15 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Prisma: precisamos do CLI e dos Engines para rodar migrações em produção
+# Prisma: Copiando com permissão para o usuário nextjs
+# O Prisma PRECISA de permissão de escrita em node_modules/@prisma/engines
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
 
 USER nextjs
 
 EXPOSE 3000
 
-# Rodar migração usando o script do Prisma diretamente com Node
-# Isso evita o uso de npx e garante que a versão correta (5.22.0) seja usada
+# Agora com as permissões corretas e OpenSSL instalado
 CMD ["sh", "-c", "node node_modules/prisma/build/index.js migrate deploy && node server.js"]
